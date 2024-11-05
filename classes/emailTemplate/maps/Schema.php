@@ -42,6 +42,8 @@ class Schema extends \PKP\core\maps\Schema
      * Summarize an email template
      *
      * Includes properties with the apiSummary flag in the email template schema.
+     *
+     * @param null|mixed $mailableClass
      */
     public function summarize(EmailTemplate $item, ?string $mailableClass = null): array
     {

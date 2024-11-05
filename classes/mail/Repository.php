@@ -18,6 +18,7 @@ use APP\facades\Repo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use PKP\context\Context;
+use PKP\emailTemplate\EmailTemplate;
 use PKP\mail\mailables\DecisionNotifyOtherAuthors;
 use PKP\mail\mailables\EditReviewNotify;
 use PKP\mail\mailables\ReviewCompleteNotifyEditors;
@@ -277,5 +278,20 @@ class Repository
             mailables\ValidateEmailContext::class,
             mailables\ValidateEmailSite::class,
         ]);
+    }
+
+    /**
+     * Gets the mailable for a given email template
+     *
+     * @param EmailTemplate $template
+     *
+     * Note: This does not discover/find mailbles defined within plugins
+     *
+     * @return string|null - Fully Qualified Class Name of a mailable
+     */
+    public function getMailableByEmailTemplate(EmailTemplate $template): ?string
+    {
+        $emailKey = $template->getData('alternateTo') ?? $template->getData('key');
+        return $this->map()->first(fn ($class) => $class::getEmailTemplateKey() === $emailKey);
     }
 }

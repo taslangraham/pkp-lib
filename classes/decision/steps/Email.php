@@ -142,6 +142,7 @@ class Email extends Step
                 });
         }
 
+
         return Repo::emailTemplate()->getSchemaMap()->mapMany($emailTemplates)->toArray();
     }
 

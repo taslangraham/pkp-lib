@@ -117,6 +117,7 @@ class Repository
             'supportsTemplates' => $class::getSupportsTemplates(),
             'toRoleIds' => $class::getToRoleIds(),
             'canAssignUserGroupToTemplates' => $this->isGroupsAssignableToTemplates($class),
+            'assignableTemplateUserGroups' => $userGroups
         ];
     }
 

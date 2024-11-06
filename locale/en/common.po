@@ -2349,3 +2349,6 @@ msgstr "No"
 
 msgid "common.refreshingData"
 msgstr "Refreshing data"
+
+msgid "workflow.userGroup.allowed"
+msgstr "Allowed User Groups"

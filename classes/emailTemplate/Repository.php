@@ -174,10 +174,13 @@ class Repository
     }
 
     /** @copydoc DAO::update() */
-    public function edit(EmailTemplate $emailTemplate, array $params)
+    public function edit(EmailTemplate $emailTemplate, array $params, $contextId)
     {
         $newEmailTemplate = clone $emailTemplate;
         $newEmailTemplate->setAllData(array_merge($newEmailTemplate->_data, $params));
+
+        $userGroupIds = $params['userGroupIds'];
+        unset($params['userGroupIds']);
 
         Hook::call('EmailTemplate::edit', [$newEmailTemplate, $emailTemplate, $params]);
 
@@ -185,6 +188,10 @@ class Repository
             $this->dao->update($newEmailTemplate);
         } else {
             $this->dao->insert($newEmailTemplate);
+        }
+
+        if($userGroupIds) {
+            $this->dao->updateTemplateAccessGroups($emailTemplate, $userGroupIds, $contextId);
         }
     }
 

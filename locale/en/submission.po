@@ -2383,6 +2383,9 @@ msgstr "All in desk/initial review"
 msgid "submission.dashboard.view.reviewExternal"
 msgstr "All in peer review"
 
+msgid "submission.dashboard.view.allInReviewStage"
+msgstr "All in review stage"
+
 msgid "submission.dashboard.view.needsReviewer"
 msgstr "Needs reviewers"
 

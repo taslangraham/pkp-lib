@@ -20,11 +20,16 @@ use PKP\submission\reviewer\recommendation\enums\ReviewerRecommendationType;
 
 class I12046_AssignMachineReadableRecommendationType extends Migration
 {
+    public function log(string $message): void
+    {
+        fwrite(STDOUT, $message . PHP_EOL);
+    }
     /**
      * @inheritDoc
      */
     public function up(): void
     {
+        $this->log('inside parent up()');
         Schema::table('reviewer_recommendations', function (Blueprint $table) {
             if (!Schema::hasColumn('reviewer_recommendations', 'type')) {
                 $table
@@ -32,6 +37,8 @@ class I12046_AssignMachineReadableRecommendationType extends Migration
                     ->nullable();
             }
         });
+
+        $this->log('after parent up() run ' . Schema::hasColumn('reviewer_recommendations', 'type')?'hasColumn':'noColumn');
     }
 
     /**

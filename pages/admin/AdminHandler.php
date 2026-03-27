@@ -18,7 +18,6 @@ namespace PKP\pages\admin;
 
 use APP\components\forms\context\ContextForm;
 use APP\core\Application;
-use APP\core\Request;
 use APP\facades\Repo;
 use APP\file\PublicFileManager;
 use APP\handler\Handler;
@@ -45,19 +44,20 @@ use PKP\config\Config;
 use PKP\core\JSONMessage;
 use PKP\core\PKPApplication;
 use PKP\core\PKPContainer;
+use PKP\core\PKPPageRouter;
 use PKP\core\PKPRequest;
-use PKP\core\PKPSessionGuard;
 use PKP\db\DAORegistry;
 use PKP\highlight\Collector as HighlightCollector;
 use PKP\job\resources\HttpFailedJobResource;
 use PKP\plugins\PluginHelper;
 use PKP\scheduledTask\ScheduledTaskHelper;
 use PKP\security\authorization\PKPSiteAccessPolicy;
-use PKP\security\authorization\AdminReauthenticationRequiredPolicy;
+use PKP\security\authorization\ReauthenticationRequiredPolicy;
 use PKP\security\Role;
 use PKP\security\Validation;
 use PKP\site\VersionCheck;
 use PKP\site\VersionDAO;
+use PKP\user\form\ConfirmPasswordForm;
 use PKP\userGroup\UserGroup;
 
 class AdminHandler extends Handler
@@ -104,7 +104,7 @@ class AdminHandler extends Handler
         $this->addPolicy(new PKPSiteAccessPolicy($request, null, $roleAssignments));
 
         if (!in_array($op, ['confirmAccessSubmit', 'confirmAccess'])) {
-            $this->addPolicy(new AdminReauthenticationRequiredPolicy($request));
+            $this->addPolicy(new ReauthenticationRequiredPolicy($request));
         }
 
         $returner = parent::authorize($request, $args, $roleAssignments);
@@ -802,10 +802,18 @@ class AdminHandler extends Handler
     /**
      * Display the page for admin to re-authenticate and confirm access to the Administration area of the site.
      */
-    public function confirmAccess(array $args, $request): void
+    public function confirmAccess(array $args, PKPRequest $request): void
     {
+        $isElevatedSessionActive = Application::get()
+            ->getRequest()
+            ->getSessionGuard()
+            ->isElevatedSessionActive();
+
+        if ($isElevatedSessionActive) {
+            $request->redirect(null, 'admin');
+        }
+
         $this->setupTemplate($request);
-        $templateMgr = TemplateManager::getManager($request);
         $submitUrl = $request->url(null, 'admin', 'confirmAccessSubmit');
 
         if (Config::getVar('security', 'force_login_ssl')) {
@@ -814,66 +822,89 @@ class AdminHandler extends Handler
 
         $source = $request->getUserVar('source');
 
+
         // If source is missing, treat the request as bypassing normal navigation and redirect home.
         if (!$source) {
-            $pkpPageRouter = $request->getRouter(); /** @var \PKP\core\PKPPageRouter $pkpPageRouter */
+            /** @var PKPPageRouter $pkpPageRouter */
+            $pkpPageRouter = $request->getRouter();
             $pkpPageRouter->redirectHome($request);
         }
 
-        $templateMgr->setState([
-            'pageInitConfig' => [
-                'source' => $request->getUserVar('source'),
-                'submitUrl' => $submitUrl,
-                'cancelUrl' =>  $request->getReferrerPath() ?: $request->getIndexUrl(),
-            ]
+        // Default cancel URL to the page the user came from.
+        $cancelUrl = $request->getRefererPath();
+
+        // If the referer is an admin route, fall back to the home page.
+        // Admin pages require verification, so redirecting back would loop
+        // the user to the same confirmation screen they are trying to cancel.
+        if ($cancelUrl && str_contains($cancelUrl, '/admin')) {
+            $cancelUrl = $request->getIndexUrl();
+        }
+
+        // Fallback to index page if $cancelUrl is empty
+        $cancelUrl = $cancelUrl ?: $request->getIndexUrl();
+
+        $confirmPasswordForm = new ConfirmPasswordForm();
+        $confirmPasswordForm->setData([
+            'submitUrl' => $submitUrl,
+            'cancelUrl' => $cancelUrl,
+            'source' => $source
         ]);
 
-        $templateMgr->assign([
-            'pageComponent' => 'Page',
-            'pageWidth' => TemplateManager::PAGE_WIDTH_NARROW,
-        ]);
-
-        $templateMgr->display('templates/admin/confirmAccess.tpl');
+        $confirmPasswordForm->display($request);
     }
 
     /**
      * Handle submission of form to confirm access to the Administration area of the site.
      */
-    public function confirmAccessSubmit($args, Request $request): void
+    public function confirmAccessSubmit(array $args, PKPRequest $request): void
     {
+        $isElevatedSessionActive = Application::get()
+            ->getRequest()
+            ->getSessionGuard()
+            ->isElevatedSessionActive();
+
+        if ($isElevatedSessionActive) {
+            $request->redirect(null, 'admin');
+        }
+
         if (Config::getVar('security', 'force_login_ssl') && $request->getProtocol() != 'https') {
             // Force SSL connections for auth verification
             $request->redirectSSL();
         }
 
-        $user = Application::get()->getRequest()->getUser();
-        $userName = $user->getUsername();
-        $password = $request->getUserVar('password');
+        $confirmPasswordForm = new ConfirmPasswordForm();
+        $confirmPasswordForm->readInputData();
 
-        if (Validation::checkCredentials($userName, $password)) {
+        if ($confirmPasswordForm->validate()) {
+            $confirmPasswordForm->execute();
+
+            Application::get()->getRequest()->getSessionGuard()->startElevatedSession();
+            /** @var PKPPageRouter $pkpPageRouter */
+            $pkpPageRouter = $request->getRouter();
+
+            $baseUrl = $request->getBaseUrl();
             $source = str_replace('@', '', $request->getUserVar('source'));
-            PKPSessionGuard::startElevatedSession();
 
+            /**
+             * If the source is an absolute URL and it does not have the same host as the app
+             * then it is an external URL. Don't redirect externally, instead redirect to the app's home page
+             */
+            $sourceParsed = parse_url($source);
+            $sourceHost = $sourceParsed['host'] ?? null;
+            $sourceScheme = $sourceParsed['scheme'] ?? null;
+            if($sourceScheme && $sourceHost && $sourceHost!== parse_url($baseUrl, PHP_URL_HOST)){
+                $pkpPageRouter->redirectHome($request);
+            }
+
+            // Source is a relative path. Validate and do appropriate redirect.
             if (preg_match('#^/\w#', (string)$source) === 1) {
                 $request->redirectUrl($source);
             } else {
-                /** @var \PKP\core\PKPPageRouter $pkpPageRouter */
-                $pkpPageRouter = $request->getRouter();
                 $pkpPageRouter->redirectHome($request);
             }
         }
 
         $this->setupTemplate($request);
-        $templateMgr = TemplateManager::getManager($request);
-
-        $templateMgr->setState([
-            'pageInitConfig'=>[
-                'source' => $request->getUserVar('source'),
-                'cancelUrl' => $request->getUserVar('cancelUrl'),
-                'error' =>  __('user.login.loginError'),
-            ]
-        ]);
-
-        $templateMgr->display('templates/admin/confirmAccess.tpl');
+        $confirmPasswordForm->display($request);
     }
 }

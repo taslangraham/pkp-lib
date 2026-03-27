@@ -32,6 +32,9 @@ use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 
 class PKPSessionGuard extends SessionGuard
 {
+    // Session key to store the timestamp when a user reauthenticated.
+    private const SESSION_KEY_REAUTHENTICATED_AT = 'reauthenticated_at';
+
     /**
      * @copydoc \Illuminate\Auth\SessionGuard::$user
      *
@@ -46,8 +49,6 @@ class PKPSessionGuard extends SessionGuard
      */
     protected $provider;
 
-    // Session key to store the timestamp when a user reauthenticated.
-    private const SESSION_KEY_REAUTHENTICATED_AT = 'reauthenticated_at';
     /**
      * Retrieves whether the session is disabled
      */
@@ -120,6 +121,8 @@ class PKPSessionGuard extends SessionGuard
             ->setUserDataToSession($user)
             ->updateUser($user)
             ->updateSession($user->getId());
+
+        $this->stopElevatedSession();
     }
 
     /**
@@ -309,22 +312,19 @@ class PKPSessionGuard extends SessionGuard
      * Check if user currently has access to sensitive area(Administration) of the app.
      * This is only applicable for site admins.
      */
-    public static function isElevatedSessionActive(): bool
+    public function isElevatedSessionActive(): bool
     {
         if (!Validation::isSiteAdmin()) {
             return false;
         }
 
         // If reauthentication is not required then Admin always has elevated access.
-        if(!Validation::isAdminReauthenticationRequired()){
+        if(!Validation::isReauthenticationRequired()){
             return true;
         }
 
-        $timeoutMinutes = (int)Config::getVar('security', 'admin_reauthentication_timeout');
-
-        $request = Application::get()->getRequest();
-        $session = $request->getSession();
-        $lastReauthenticationTimestamp = (int)$session->get(self::SESSION_KEY_REAUTHENTICATED_AT);
+        $timeoutMinutes = (int)Config::getVar('security', 'password_timeout');
+        $lastReauthenticationTimestamp = (int)$this->getSession()->get(self::SESSION_KEY_REAUTHENTICATED_AT);
 
         if (!$lastReauthenticationTimestamp) {
             return false;
@@ -332,11 +332,12 @@ class PKPSessionGuard extends SessionGuard
 
         $timeoutSeconds = $timeoutMinutes * 60;
         $elapsedSeconds = time() - $lastReauthenticationTimestamp;
-
         $isWithinWindow = $elapsedSeconds < $timeoutSeconds;
-        // Reset window time while user is actively navigating around the sensitive area of app.
-        // This prevents the elevated access from expiring while user is actively using that sensitive area.
-        self::startElevatedSession();
+
+        // Keep elevated access active while the user is interacting with the restricted area of app.
+        if ($isWithinWindow) {
+            $this->startElevatedSession();
+        }
 
         return $isWithinWindow;
     }
@@ -344,23 +345,20 @@ class PKPSessionGuard extends SessionGuard
     /**
      * Starts the elevated session for site admins. Granting access to sensitive area(Administration) of the app for a limited time.
      */
-    public static function startElevatedSession(): void
+    public function startElevatedSession(): void
     {
-        if (Validation::isAdminReauthenticationRequired() && Validation::isSiteAdmin()) {
-            $request = Application::get()->getRequest();
-            $request->getSession()->put(self::SESSION_KEY_REAUTHENTICATED_AT, time());
+        if (Validation::isReauthenticationRequired() && Validation::isSiteAdmin()) {
+            $this->getSession()->put(self::SESSION_KEY_REAUTHENTICATED_AT, time());
         }
     }
 
     /**
      * Stops the elevated session for logged in site admin.
      */
-    public static function stopElevatedSession(): void
+    public function stopElevatedSession(): void
     {
-        $request = Application::get()->getRequest();
-
         if (Validation::isSiteAdmin()) {
-            $request->getSession()->forget(self::SESSION_KEY_REAUTHENTICATED_AT);
+            $this->getSession()->forget(self::SESSION_KEY_REAUTHENTICATED_AT);
         }
     }
 }

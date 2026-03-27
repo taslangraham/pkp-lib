@@ -1,36 +1,31 @@
 <?php
 
 /**
- * @file classes/security/authorization/AdminReauthenticationRequiredPolicy.php
+ * @file classes/security/authorization/ReauthenticationRequiredPolicy.php
  *
  * Copyright (c) 2026 Simon Fraser University
  * Copyright (c) 2026 John Willinsky
  * Distributed under the GNU GPL v3. For full terms see the file docs/COPYING.
  *
- * @class AdminReauthenticationRequiredPolicy
+ * @class ReauthenticationRequiredPolicy
  *
  * @ingroup security_authorization
  *
- * @brief Policy to require admin to reauthenticate when accessing Administration pages.
+ * @brief Policy to require to reauthenticate when accessing sensutive pages within the application.
+ * Currently only applicable to admins.
  */
 
 namespace PKP\security\authorization;
 
 use APP\core\Application;
-use PKP\config\Config;
-use PKP\core\PKPApplication;
 use PKP\core\PKPRequest;
-use PKP\core\PKPSessionGuard;
-use PKP\security\Role;
-use PKP\security\Validation;
 
-class AdminReauthenticationRequiredPolicy extends AuthorizationPolicy
+class ReauthenticationRequiredPolicy extends AuthorizationPolicy
 {
     private PKPRequest $request;
 
     /**
      * @param PKPRequest $request
-     * @param array $roleIds - Array of Role IDs that are allowed to access the app area that requires sudo mode
      */
     public function __construct(PKPRequest $request)
     {
@@ -47,7 +42,7 @@ class AdminReauthenticationRequiredPolicy extends AuthorizationPolicy
             return AuthorizationPolicy::AUTHORIZATION_DENY;
         }
 
-        if (PKPSessionGuard::isElevatedSessionActive()) {
+        if (Application::get()->getRequest()->getSessionGuard()->isElevatedSessionActive()) {
             return AuthorizationPolicy::AUTHORIZATION_PERMIT;
         }
 
@@ -68,6 +63,7 @@ class AdminReauthenticationRequiredPolicy extends AuthorizationPolicy
         $dispatcher = $this->request->getDispatcher();
         $params = ['source' => $this->request->getRequestPath()];
 
+        // reauthentication is handled in the admin page handler since this is currently only applicable to admins
         $reauthenticationUrl = $dispatcher->url(
             $this->request,
             Application::ROUTE_PAGE,

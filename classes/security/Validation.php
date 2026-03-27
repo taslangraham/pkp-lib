@@ -589,11 +589,11 @@ class Validation
     }
 
     /**
-     * Check if Admins are required to reauthenticate when accessing the admin area.
+     * Check if user is required to reauthenticate when accessing restricted area of the app.
      */
-    public static function isAdminReauthenticationRequired(): bool
+    public static function isReauthenticationRequired(): bool
     {
-        $timeout = Config::getVar('security', 'admin_reauthentication_timeout');
+        $timeout = Config::getVar('security', 'password_timeout');
         return $timeout !== null && $timeout > 0;
     }
 }

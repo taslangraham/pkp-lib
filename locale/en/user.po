@@ -892,3 +892,8 @@ msgstr "Bio Statement"
 
 msgid "user.removeRole.roleRemainMessage"
 msgstr "You cannot remove the role. At least one role must be assigned to the user."
+
+msgid "user.confrimAccess"
+msgstr ""
+"Signed in as <strong>{$userFullName}</strong>."
+"<br />Please enter your password to continue."

@@ -18,6 +18,7 @@ namespace PKP\pages\admin;
 
 use APP\components\forms\context\ContextForm;
 use APP\core\Application;
+use APP\core\Request;
 use APP\facades\Repo;
 use APP\file\PublicFileManager;
 use APP\handler\Handler;
@@ -45,13 +46,16 @@ use PKP\core\JSONMessage;
 use PKP\core\PKPApplication;
 use PKP\core\PKPContainer;
 use PKP\core\PKPRequest;
+use PKP\core\PKPSessionGuard;
 use PKP\db\DAORegistry;
 use PKP\highlight\Collector as HighlightCollector;
 use PKP\job\resources\HttpFailedJobResource;
 use PKP\plugins\PluginHelper;
 use PKP\scheduledTask\ScheduledTaskHelper;
 use PKP\security\authorization\PKPSiteAccessPolicy;
+use PKP\security\authorization\AdminReauthenticationRequiredPolicy;
 use PKP\security\Role;
+use PKP\security\Validation;
 use PKP\site\VersionCheck;
 use PKP\site\VersionDAO;
 use PKP\userGroup\UserGroup;
@@ -85,6 +89,8 @@ class AdminHandler extends Handler
                 'jobs',
                 'failedJobs',
                 'failedJobDetails',
+                'confirmAccessSubmit',
+                'confirmAccess',
             ]
         );
     }
@@ -94,7 +100,13 @@ class AdminHandler extends Handler
      */
     public function authorize($request, &$args, $roleAssignments)
     {
+        $op = $request->getRequestedOp();
         $this->addPolicy(new PKPSiteAccessPolicy($request, null, $roleAssignments));
+
+        if (!in_array($op, ['confirmAccessSubmit', 'confirmAccess'])) {
+            $this->addPolicy(new AdminReauthenticationRequiredPolicy($request));
+        }
+
         $returner = parent::authorize($request, $args, $roleAssignments);
 
         // Admin shouldn't access this page from a specific context
@@ -116,7 +128,7 @@ class AdminHandler extends Handler
             'pageComponent' => 'AdminPage',
         ]);
 
-        if ($request->getRequestedOp() !== 'index') {
+        if (!in_array($request->getRequestedOp(), ['index', 'confirmAccessSubmit', 'confirmAccess'])) {
             $router = $request->getRouter();
             $templateMgr->assign([
                 'breadcrumbs' => [
@@ -785,5 +797,83 @@ class AdminHandler extends Handler
                 'itemsMax' => $itemsMax,
             ]
         );
+    }
+
+    /**
+     * Display the page for admin to re-authenticate and confirm access to the Administration area of the site.
+     */
+    public function confirmAccess(array $args, $request): void
+    {
+        $this->setupTemplate($request);
+        $templateMgr = TemplateManager::getManager($request);
+        $submitUrl = $request->url(null, 'admin', 'confirmAccessSubmit');
+
+        if (Config::getVar('security', 'force_login_ssl')) {
+            $submitUrl = preg_replace('/^http:/', 'https:', $submitUrl);
+        }
+
+        $source = $request->getUserVar('source');
+
+        // If source is missing, treat the request as bypassing normal navigation and redirect home.
+        if (!$source) {
+            $pkpPageRouter = $request->getRouter(); /** @var \PKP\core\PKPPageRouter $pkpPageRouter */
+            $pkpPageRouter->redirectHome($request);
+        }
+
+        $templateMgr->setState([
+            'pageInitConfig' => [
+                'source' => $request->getUserVar('source'),
+                'submitUrl' => $submitUrl,
+                'cancelUrl' =>  $request->getReferrerPath() ?: $request->getIndexUrl(),
+            ]
+        ]);
+
+        $templateMgr->assign([
+            'pageComponent' => 'Page',
+            'pageWidth' => TemplateManager::PAGE_WIDTH_NARROW,
+        ]);
+
+        $templateMgr->display('templates/admin/confirmAccess.tpl');
+    }
+
+    /**
+     * Handle submission of form to confirm access to the Administration area of the site.
+     */
+    public function confirmAccessSubmit($args, Request $request): void
+    {
+        if (Config::getVar('security', 'force_login_ssl') && $request->getProtocol() != 'https') {
+            // Force SSL connections for auth verification
+            $request->redirectSSL();
+        }
+
+        $user = Application::get()->getRequest()->getUser();
+        $userName = $user->getUsername();
+        $password = $request->getUserVar('password');
+
+        if (Validation::checkCredentials($userName, $password)) {
+            $source = str_replace('@', '', $request->getUserVar('source'));
+            PKPSessionGuard::startElevatedSession();
+
+            if (preg_match('#^/\w#', (string)$source) === 1) {
+                $request->redirectUrl($source);
+            } else {
+                /** @var \PKP\core\PKPPageRouter $pkpPageRouter */
+                $pkpPageRouter = $request->getRouter();
+                $pkpPageRouter->redirectHome($request);
+            }
+        }
+
+        $this->setupTemplate($request);
+        $templateMgr = TemplateManager::getManager($request);
+
+        $templateMgr->setState([
+            'pageInitConfig'=>[
+                'source' => $request->getUserVar('source'),
+                'cancelUrl' => $request->getUserVar('cancelUrl'),
+                'error' =>  __('user.login.loginError'),
+            ]
+        ]);
+
+        $templateMgr->display('templates/admin/confirmAccess.tpl');
     }
 }

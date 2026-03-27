@@ -587,4 +587,13 @@ class Validation
         }
         return self::getAdministrationLevel($targetUserId, $currentUserId, $contextId) === self::ADMINISTRATION_FULL;
     }
+
+    /**
+     * Check if Admins are required to reauthenticate when accessing the admin area.
+     */
+    public static function isAdminReauthenticationRequired(): bool
+    {
+        $timeout = Config::getVar('security', 'admin_reauthentication_timeout');
+        return $timeout !== null && $timeout > 0;
+    }
 }

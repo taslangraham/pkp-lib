@@ -26,7 +26,6 @@ use PKP\config\Config;
 use PKP\context\Context;
 use PKP\core\PKPApplication;
 use PKP\core\PKPRequest;
-use PKP\core\PKPSessionGuard;
 use PKP\form\validation\FormValidatorAltcha;
 use PKP\form\validation\FormValidatorReCaptcha;
 use PKP\mail\mailables\PasswordResetRequested;
@@ -502,8 +501,6 @@ class LoginHandler extends Handler
 
             if (isset($newUser) && $sessionGuard->getUserId() != $newUser->getId()) {
                 $request->getSessionGuard()->signInAs($newUser);
-                // Remove admin elevated session info if it exists
-                PKPSessionGuard::stopElevatedSession();
                 $this->_redirectByURL($request);
             }
         }

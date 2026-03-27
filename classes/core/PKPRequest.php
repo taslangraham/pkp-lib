@@ -786,12 +786,12 @@ class PKPRequest
     }
 
     /**
-     * Get the path of the referrer URL.
-     * @return string|null The referrer path along with any available query params, or null if the referrer is not set.
+     * Get the path of the referer URL.
+     * @return string|null The referer path along with any available query params, or null if the referer is not set.
      */
-    public function getReferrerPath(): ?string
+    public function getRefererPath(): ?string
     {
-        $referer = $_SERVER['HTTP_REFERER'];
+        $referer = $_SERVER['HTTP_REFERER'] ?? null;
         if (!$referer) {
             return null;
         }

@@ -76,6 +76,13 @@ class InvitationController extends PKPBaseController
         'decline',
     ];
 
+    public $publicActions = [
+        'receive',
+        'finalize',
+        'refine',
+        'decline'
+    ];
+
     private ?Invitation $invitation = null;
     private ?CreateInvitationController $createInvitationHandler = null;
     private ?ReceiveInvitationController $receiveInvitationHandler = null;
@@ -177,6 +184,10 @@ class InvitationController extends PKPBaseController
     {
         $illuminateRequest = $args[0]; /** @var \Illuminate\Http\Request $illuminateRequest */
         $actionName = static::getRouteActionName($illuminateRequest);
+
+        if (in_array($actionName, $this->publicActions)) {
+            $this->setEnforceRestrictedSite(false);
+        }
 
         $invitation = null;
 

@@ -76,6 +76,13 @@ class InvitationController extends PKPBaseController
         'decline',
     ];
 
+    public $publicActions = [
+        'receive',
+        'finalize',
+        'refine',
+        'decline'
+    ];
+
     private ?Invitation $invitation = null;
     private ?CreateInvitationController $createInvitationHandler = null;
     private ?ReceiveInvitationController $receiveInvitationHandler = null;
@@ -183,6 +190,10 @@ class InvitationController extends PKPBaseController
         $invitationType = $this->getParameter(self::PARAM_TYPE);
         $invitationId = (int) $this->getParameter(self::PARAM_ID);
         $invitationKey = $this->getParameter(self::PARAM_KEY);
+
+        if (in_array($actionName, $this->publicActions)) {
+            $this->setEnforceRestrictedSite(false);
+        }
 
         if (in_array($actionName, $this->requiresType)) {
             if (!isset($invitationType)) {

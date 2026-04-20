@@ -289,4 +289,9 @@ class Repository
     {
         return $this->dao->getExternalReviewerIdsByCompletedYear($contextId, $year);
     }
+
+    public function getExportableDOIsPeerReviewIds(int $contextId, ?array $submissionIds = null): array
+    {
+        return $this->dao->getExportableDOIsPeerReviewIds($contextId, $submissionIds);
+    }
 }

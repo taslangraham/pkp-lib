@@ -264,6 +264,12 @@ msgstr "Cancel"
 msgid "common.cancelled"
 msgstr "Cancelled"
 
+msgid "common.clickToUploadFiles"
+msgstr "Click to upload files"
+
+msgid "common.selectedFile"
+msgstr "Selected File"
+
 msgid "common.warning"
 msgstr "Warning"
 
@@ -1037,6 +1043,9 @@ msgstr "Upload File"
 
 msgid "common.upload.addFile.description"
 msgstr "Upload a file from your computer."
+
+msgid "common.upload.addFiles"
+msgstr "Upload Files"
 
 msgid "common.upload.restore"
 msgstr "Restore Original"

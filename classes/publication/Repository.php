@@ -1149,11 +1149,10 @@ abstract class Repository
      * Get review-related DOI data grouped by publication ID.
      *
      * @param int[] $publicationIds
-     * @param bool $onlyPubliclyVisibleReviews - Boolean indicating if only publicly visible reviews should be considered.
-     *
      * @return array<int, array<array{pubObjectType: string, pubObjectId: int, doiObject: Doi|null}>>
+     * @throws \Exception
      */
-    public function getReviewDoiItemsGroupedByPublication(array $publicationIds, bool $onlyPubliclyVisibleReviews = false): array
+    public function getReviewDoiItemsGroupedByPublication(array $publicationIds): array
     {
         if (empty($publicationIds)) {
             return [];
@@ -1180,13 +1179,9 @@ abstract class Repository
         $assignments = Repo::reviewAssignment()
             ->getCollector()
             ->filterByReviewRoundIds($roundIds)
-            ->getMany()->toArray();
+            ->getMany();
 
         foreach ($assignments as $assignment) {
-            if ($onlyPubliclyVisibleReviews && !$assignment->getIsReviewPubliclyVisible()) {
-                continue;
-            }
-
             $pubId = $roundToPublication[$assignment->getReviewRoundId()] ?? null;
             if ($pubId !== null) {
                 $result[$pubId][] = [

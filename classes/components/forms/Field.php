@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file classes/components/form/Field.php
  *
@@ -123,7 +124,7 @@ abstract class Field
             $config['isInert'] = $this->isInert;
         }
 
-        $config['value'] = $this->value ?? $this->default ?? null;
+        $config['value'] = $this->value ?? $this->default ?? $this->getEmptyValue();
 
         return $config;
     }

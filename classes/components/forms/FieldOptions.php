@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file classes/components/form/FieldOptions.php
  *
@@ -46,5 +47,13 @@ class FieldOptions extends Field
         $config['options'] = $this->options;
 
         return $config;
+    }
+
+    /**
+     * @copydoc Field::getEmptyValue()
+     */
+    public function getEmptyValue()
+    {
+        return $this->type === 'radio' ? '' : [];
     }
 }
